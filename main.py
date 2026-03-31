@@ -13,6 +13,9 @@ import torch.nn.functional as F
 from torch_geometric.nn import GCNConv, global_mean_pool, global_max_pool
 from torch_geometric.data import Data
 
+# --- NEW: ChEMBL INTEGRATION ---
+from chembl_webresource_client.new_client import new_client
+
 # 1. Initialize the FastAPI Application
 app = FastAPI(title="CodeCure Toxicity Predictor")
 templates = Jinja2Templates(directory="templates")
@@ -108,20 +111,54 @@ def get_compound_data(smiles: str):
                     title = data['PropertyTable']['Properties'][0]['Title']
                     cid = data['PropertyTable']['Properties'][0].get('CID')
                     return title, cid
-                else:
-                    return "Unknown / Novel Compound", None
-                    
-            except requests.exceptions.RequestException as e:
-                if attempt == 2:  # If this was the 3rd attempt, throw the error
-                    raise
-                print(f"Network hiccup. Retrying... (Attempt {attempt + 2})")
-                time.sleep(1)  # Wait 1 second to let the network cool down
-                
+                else: return "Unknown / Novel Compound", None
+            except requests.exceptions.RequestException:
+                if attempt == 2: raise
+                time.sleep(1) 
     except Exception as e:
-        print(f"PubChem API Error: {e}")
         return "Unknown / Novel Compound", None
 
-# 5. API ROUTES
+# --- NEW: ChEMBL INTEGRATION FUNCTION ---
+def get_chembl_data(compound_name: str, smiles: str):
+    try:
+        molecule = new_client.molecule
+        
+        # We add the new fields to the .only() list
+        fields_to_pull = [
+            'molecule_chembl_id', 'max_phase', 'molecule_type', 
+            'black_box_warning', 'withdrawn_flag', 'first_approval', 
+            'molecule_properties', 'indication_class'
+        ]
+        
+        mols = molecule.filter(molecule_structures__canonical_smiles=smiles).only(fields_to_pull)
+        
+        if not mols and compound_name != "Unknown / Novel Compound":
+            mols = molecule.filter(pref_name__iexact=compound_name).only(fields_to_pull)
+        
+        if mols:
+            data = mols[0]
+            # Safely extract properties (since some molecules might not have them calculated)
+            props = data.get('molecule_properties') or {}
+            
+            return {
+                "id": data.get('molecule_chembl_id', 'Unregistered'),
+                "max_phase": data.get('max_phase', 0),
+                "type": data.get('molecule_type', 'Unknown'),
+                
+                # --- THE NEW DATA ---
+                "black_box_warning": data.get('black_box_warning', False),
+                "withdrawn": data.get('withdrawn_flag', False),
+                "approval_year": data.get('first_approval', 'N/A'),
+                "indication": data.get('indication_class', 'Unknown'),
+                "psa": props.get('psa', 'N/A'),
+                "qed_score": props.get('qed_weighted', 'N/A')
+            }
+    except Exception as e:
+        print(f"ChEMBL API Error: {e}")
+        
+    return {"id": "Unregistered", "max_phase": 0, "type": "Novel / Uncatalogued"}
+
+
 @app.get("/")
 async def serve_frontend(request: Request):
     return templates.TemplateResponse(request=request, name="index.html")
@@ -129,28 +166,24 @@ async def serve_frontend(request: Request):
 @app.post("/predict")
 async def predict_toxicity(request: MoleculeInput):
     try:
-        # 1. AI Toxicity Prediction
         graph_data = smiles_to_graph(request.smiles)
         batch = torch.zeros(graph_data.x.size(0), dtype=torch.long)
-        
         with torch.no_grad():
             logits = toxicity_model(graph_data.x, graph_data.edge_index, batch)
             risk_probability = float(torch.sigmoid(logits[0, 11]).item())
         
         risk_level = "High Risk" if risk_probability > 0.7 else "Medium Risk" if risk_probability > 0.4 else "Low Risk"
-
-        # 2. Get API Data (Name & CID)
         compound_name, cid = get_compound_data(request.smiles)
 
-        # 3. NEW: Calculate Lipinski's Rule of 5 using RDKit
         mol = Chem.MolFromSmiles(request.smiles.strip())
         weight = Descriptors.MolWt(mol)
         logp = Descriptors.MolLogP(mol)
         h_donors = Descriptors.NumHDonors(mol)
         h_acceptors = Descriptors.NumHAcceptors(mol)
-
-        # A drug "passes" if it meets these 4 criteria
         lipinski_pass = (weight <= 500) and (logp <= 5) and (h_donors <= 5) and (h_acceptors <= 10)
+
+        # --- NEW: CALL ChEMBL API ---
+        chembl_info = get_chembl_data(compound_name, request.smiles.strip())
 
         return {
             "status": "success",
@@ -159,18 +192,18 @@ async def predict_toxicity(request: MoleculeInput):
             "smiles_analyzed": request.smiles,
             "toxicity_risk_score": round(risk_probability, 4),
             "risk_level": risk_level,
-            # NEW: Sending pharmacological data to the frontend
             "pharmacokinetics": {
                 "weight": round(weight, 2),
                 "logp": round(logp, 2),
                 "h_donors": h_donors,
                 "h_acceptors": h_acceptors,
                 "lipinski_pass": lipinski_pass
-            }
+            },
+            # --- NEW: SEND DATA TO FRONTEND ---
+            "chembl": chembl_info
         }
 
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        print(f"Prediction Error: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
