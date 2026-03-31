@@ -10,6 +10,8 @@
     <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
 
+    <script src="https://3Dmol.csb.pitt.edu/build/3Dmol-min.js"></script>
+
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400&display=swap');
 
@@ -50,7 +52,7 @@
 
 <body
     class="bg-[#09090b] text-zinc-300 min-h-screen flex flex-col items-center justify-center p-6 selection:bg-indigo-500/30">
-    <div id="root" class="w-full max-w-2xl z-10"></div>
+    <div id="root" class="w-full max-w-4xl z-10 transition-all duration-500"></div>
 
     <div
         class="fixed top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-indigo-900/20 rounded-full blur-[120px] pointer-events-none -z-10">
@@ -58,6 +60,7 @@
 
     <script type="text/babel">
         function App() {
+            // Started with an empty string as requested!
             const [smiles, setSmiles] = React.useState("");
             const [result, setResult] = React.useState(null);
             const [loading, setLoading] = React.useState(false);
@@ -86,7 +89,32 @@
                 }
             };
 
-            // Minimalist dot indicators instead of bulky badges
+            // NEW: The 3D Engine Initialization
+            // NEW: The 3D Engine Initialization (Now using CID!)
+            React.useEffect(() => {
+                // Check to make sure we actually received a CID from the backend
+                if (result && result.cid) {
+                    setTimeout(() => {
+                        const viewerElement = document.getElementById('molecule-viewer');
+                        if (viewerElement) {
+                            viewerElement.innerHTML = '';
+                            const viewer = $3Dmol.createViewer(viewerElement, { backgroundColor: 'transparent' });
+
+                            // MAGIC FIX: Download using the exact CID number instead of the complex name
+                            $3Dmol.download(`cid:${result.cid}`, viewer, {}, function () {
+                                viewer.setStyle({}, {
+                                    stick: { radius: 0.15, colorscheme: 'Jmol' },
+                                    sphere: { scale: 0.3, colorscheme: 'Jmol' }
+                                });
+                                viewer.spin("y", 0.5);
+                                viewer.zoomTo();
+                                viewer.render();
+                            });
+                        }
+                    }, 150);
+                }
+            }, [result]);
+
             const getRiskIndicator = (level) => {
                 if (level === "High Risk") return <span class="flex items-center gap-2 text-red-400 font-medium"><span class="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]"></span> Critical Risk</span>;
                 if (level === "Medium Risk") return <span class="flex items-center gap-2 text-amber-400 font-medium"><span class="w-2 h-2 rounded-full bg-amber-400"></span> Elevated Risk</span>;
@@ -94,14 +122,14 @@
             };
 
             return (
-                <div class="w-full animate-fade-in">
+                <div class="w-full animate-fade-in mx-auto">
                     {/* Header */}
                     <div class="mb-12 text-center">
                         <h1 class="text-3xl font-light text-white tracking-widest uppercase mb-2">CodeCure <span class="font-semibold text-indigo-400">AI</span></h1>
                         <p class="text-sm text-zinc-500 tracking-wide">DEEP GRAPH NEURAL NETWORK • TOX21 PATHWAY ANALYSIS</p>
                     </div>
 
-                    <form onSubmit={analyzeCompound} class="mb-8 relative group">
+                    <form onSubmit={analyzeCompound} class="mb-8 relative group max-w-2xl mx-auto">
                         <input
                             type="text"
                             value={smiles}
@@ -120,13 +148,13 @@
                     </form>
 
                     {error && (
-                        <div class="text-red-400 text-sm py-3 border-l-2 border-red-500 pl-4 mb-8">
+                        <div class="text-red-400 text-sm py-3 border-l-2 border-red-500 pl-4 mb-8 max-w-2xl mx-auto">
                             {error}
                         </div>
                     )}
 
                     {loading && (
-                        <div class="glass-panel rounded-2xl p-10 text-center animate-subtle-pulse">
+                        <div class="glass-panel rounded-2xl p-10 text-center animate-subtle-pulse max-w-2xl mx-auto">
                             <p class="text-zinc-400 text-sm tracking-widest uppercase mb-2">Constructing Graph Topology</p>
                             <div class="h-[1px] w-24 bg-indigo-500/50 mx-auto"></div>
                         </div>
@@ -134,7 +162,7 @@
 
                     {result && !loading && (
                         <div class="glass-panel rounded-2xl p-8 shadow-2xl transition-all duration-500">
-                            {/* Main Result */}
+                            {/* Main Result Header */}
                             <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 pb-6 border-b border-zinc-800/50 gap-4">
                                 <div>
                                     <p class="text-xs text-zinc-500 uppercase tracking-widest mb-2">Identified Compound</p>
@@ -145,26 +173,53 @@
                                 </div>
                             </div>
 
-                            {/* Metrics Grid */}
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                                <div>
-                                    <p class="text-xs text-zinc-500 uppercase tracking-widest mb-2">SR-p53 Toxicity Probability</p>
-                                    <p class="text-4xl font-light text-white">
-                                        {(result.toxicity_risk_score * 100).toFixed(2)}<span class="text-xl text-zinc-600">%</span>
-                                    </p>
+                            {/* Layout Grid: Stats on Left, 3D Render on Right */}
+                            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+
+                                {/* Left Column: Metrics */}
+                                <div class="lg:col-span-2 flex flex-col justify-center gap-8 pr-4">
+                                    <div>
+                                        <p class="text-xs text-zinc-500 uppercase tracking-widest mb-2">SR-p53 Toxicity Probability</p>
+                                        <p class="text-5xl font-light text-white">
+                                            {(result.toxicity_risk_score * 100).toFixed(2)}<span class="text-2xl text-zinc-600">%</span>
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-zinc-500 uppercase tracking-widest mb-2">Input SMILES Geometry</p>
+                                        <p class="text-sm text-zinc-400 mono break-all leading-relaxed bg-black/20 p-4 rounded-lg border border-white/5">
+                                            {result.smiles_analyzed}
+                                        </p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <p class="text-xs text-zinc-500 uppercase tracking-widest mb-2">Input SMILES Geometry</p>
-                                    <p class="text-sm text-zinc-400 mono break-all leading-relaxed">
-                                        {result.smiles_analyzed}
-                                    </p>
+
+                                {/* Right Column: 3D Viewer */}
+                                <div class="h-64 lg:h-auto min-h-[240px] bg-black/40 rounded-xl border border-white/10 relative overflow-hidden group shadow-inner">
+                                    <div class="absolute top-3 left-3 z-10">
+                                        <p class="text-[10px] text-zinc-400 uppercase tracking-widest font-semibold drop-shadow-md">Interactive 3D Model</p>
+                                    </div>
+
+                                    {result.compound_name === "Unknown / Novel Compound" ? (
+                                        <div class="absolute inset-0 flex items-center justify-center p-6 text-center">
+                                            <p class="text-zinc-600 text-xs">3D rendering unavailable for uncatalogued novel SMILES strings.</p>
+                                        </div>
+                                    ) : (
+                                        <div id="molecule-viewer" class="absolute inset-0 cursor-move"></div>
+                                    )}
+
+                                    {/* Hover Instruction */}
+                                    <div class="absolute bottom-3 right-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+                                        <p class="text-[9px] text-zinc-300 uppercase tracking-widest bg-black/60 px-2 py-1 rounded backdrop-blur-md border border-white/10">
+                                            Drag to Rotate • Scroll to Zoom
+                                        </p>
+                                    </div>
                                 </div>
+
                             </div>
 
                             {/* Scientific Disclaimer */}
-                            <div class="mt-8 pt-6 border-t border-zinc-800/50">
+                            <div class="mt-4 pt-6 border-t border-zinc-800/50">
                                 <p class="text-[10px] leading-relaxed text-zinc-600 uppercase tracking-wide">
-                                    * Prediction represents the probability of cellular stress and DNA damage strictly along the SR-p53 bioassay pathway. This model utilizes a multi-target Graph Neural Network. Compounds scoring low in this specific pathway (e.g., Fentanyl) may still present extreme systemic or neurological toxicities.
+                                    * Prediction represents the probability of cellular stress and DNA damage strictly along the SR-p53 bioassay pathway. This model utilizes a multi-target Graph Neural Network. Compounds scoring low in this specific pathway may still present extreme systemic or neurological toxicities.
                                 </p>
                             </div>
                         </div>

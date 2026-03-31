@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from rdkit import Chem
 import requests
 import urllib.parse
+import time
 
 # --- NEW PYTORCH IMPORTS ---
 import torch
@@ -72,32 +73,39 @@ def smiles_to_graph(smiles_string: str):
     
     return Data(x=x, edge_index=edge_index)
 
-def get_compound_name(smiles: str) -> str:
+# 4. Helper function to get Name AND the CID Number
+def get_compound_data(smiles: str):
     try:
-        # Step 1: Convert to RDKit Molecule
         mol = Chem.MolFromSmiles(smiles.strip())
         if mol is None:
-            return "Unknown Compound"
+            return "Unknown Compound", None
 
-        # Step 2: Generate the universal InChIKey
         inchikey = Chem.MolToInchiKey(mol)
-        
-        # Step 3: Ask PubChem specifically for the 'Title' property!
         url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/inchikey/{inchikey}/property/Title/JSON"
         
-        response = requests.get(url, timeout=5)
-        
-        if response.status_code == 200:
-            data = response.json()
-            # Navigate the new JSON structure to grab the official title
-            return data['PropertyTable']['Properties'][0]['Title']
-        else:
-            print(f"PubChem couldn't find InChIKey: {inchikey}")
-            return "Unknown / Novel Compound"
-            
+        # NEW: A self-healing retry loop (tries 3 times before failing)
+        for attempt in range(3):
+            try:
+                # headers={'Connection': 'close'} forces PubChem to give us a fresh line every time
+                response = requests.get(url, headers={'Connection': 'close'}, timeout=5)
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    title = data['PropertyTable']['Properties'][0]['Title']
+                    cid = data['PropertyTable']['Properties'][0].get('CID')
+                    return title, cid
+                else:
+                    return "Unknown / Novel Compound", None
+                    
+            except requests.exceptions.RequestException as e:
+                if attempt == 2:  # If this was the 3rd attempt, throw the error
+                    raise
+                print(f"Network hiccup. Retrying... (Attempt {attempt + 2})")
+                time.sleep(1)  # Wait 1 second to let the network cool down
+                
     except Exception as e:
         print(f"PubChem API Error: {e}")
-        return "Unknown / Novel Compound"
+        return "Unknown / Novel Compound", None
 
 # 5. API ROUTES
 @app.get("/")
@@ -107,28 +115,22 @@ async def serve_frontend(request: Request):
 @app.post("/predict")
 async def predict_toxicity(request: MoleculeInput):
     try:
-        # Step A: Convert to PyTorch Graph
         graph_data = smiles_to_graph(request.smiles)
-        
-        # We need a "batch" vector of 0s because we are only passing 1 molecule at a time
         batch = torch.zeros(graph_data.x.size(0), dtype=torch.long)
         
-        # Step B: Make the GNN Prediction
-        with torch.no_grad(): # Don't calculate gradients (saves memory)
+        with torch.no_grad():
             logits = toxicity_model(graph_data.x, graph_data.edge_index, batch)
-            
-            # The model outputs 12 targets. 'SR-p53' is the 12th one (index 11).
-            # We apply a sigmoid function to turn the raw logit into a percentage (0.0 to 1.0)
             risk_probability = float(torch.sigmoid(logits[0, 11]).item())
         
-        # Step C: Determine the risk level
         risk_level = "High Risk" if risk_probability > 0.7 else "Medium Risk" if risk_probability > 0.4 else "Low Risk"
 
-        compound_name = get_compound_name(request.smiles)
+        # NEW: Unpack both the name and the CID
+        compound_name, cid = get_compound_data(request.smiles)
 
         return {
             "status": "success",
             "compound_name": compound_name,
+            "cid": cid,  # <-- Sending the CID to the React frontend!
             "smiles_analyzed": request.smiles,
             "toxicity_risk_score": round(risk_probability, 4),
             "risk_level": risk_level,
