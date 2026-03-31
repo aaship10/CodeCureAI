@@ -10,7 +10,7 @@ import time
 # --- NEW PYTORCH IMPORTS ---
 import torch
 import torch.nn.functional as F
-from torch_geometric.nn import GCNConv, global_mean_pool
+from torch_geometric.nn import GCNConv, global_mean_pool, global_max_pool
 from torch_geometric.data import Data
 
 # 1. Initialize the FastAPI Application
@@ -21,36 +21,49 @@ class MoleculeInput(BaseModel):
     smiles: str
 
 # 2. THE GNN ARCHITECTURE (Copied from your friend's notebook)
+# UPGRADED: The Fine-Tuned Model Architecture (Matches Colab!)
 class Tox21GNN(torch.nn.Module):
     def __init__(self, hidden_dim=64):
         super(Tox21GNN, self).__init__()
         self.conv1 = GCNConv(1, hidden_dim)
         self.conv2 = GCNConv(hidden_dim, hidden_dim * 2)
         self.conv3 = GCNConv(hidden_dim * 2, hidden_dim * 4)
-        self.fc1 = torch.nn.Linear(hidden_dim * 4, 128)
-        self.fc2 = torch.nn.Linear(128, 12) # Outputs all 12 Tox21 targets
+        
+        # Multiplied by 2 because we are concatenating Mean and Max pooling
+        self.fc1 = torch.nn.Linear((hidden_dim * 4) * 2, 128)
+        self.fc2 = torch.nn.Linear(128, 12) 
 
     def forward(self, x, edge_index, batch):
         x = F.relu(self.conv1(x, edge_index))
         x = F.relu(self.conv2(x, edge_index))
         x = self.conv3(x, edge_index)
-        x = global_mean_pool(x, batch)
+        
+        # Dual Pooling (Mean + Max)
+        x_mean = global_mean_pool(x, batch) 
+        x_max = global_max_pool(x, batch) 
+        
+        # Smash them together
+        x = torch.cat([x_mean, x_max], dim=1)
+        
+        # Dropout (We keep this for architectural consistency, though it does nothing during inference/eval)
+        x = F.dropout(x, p=0.3, training=self.training)
         x = F.relu(self.fc1(x))
+        x = F.dropout(x, p=0.3, training=self.training)
         x = self.fc2(x) 
         return x
 
 # 3. LOAD THE PYTORCH MODEL
-print("Loading GNN Toxicity Model...")
+print("Loading Advanced GNN Toxicity Model...")
 try:
-    # Initialize the architecture
     toxicity_model = Tox21GNN()
-    # Load the weights (state_dict) from the file you zipped up
-    toxicity_model.load_state_dict(torch.load('tox21_final_model.pth.zip', map_location=torch.device('cpu'), weights_only=True))
-    toxicity_model.eval() # Set to evaluation mode (turns off training features)
+    # Loading the renamed file directly
+    toxicity_model.load_state_dict(torch.load('tox21_final_model.pth', map_location=torch.device('cpu'), weights_only=True))
+    toxicity_model.eval() 
     print("✅ PyTorch GNN Loaded Successfully!")
 except Exception as e:
     print(f"❌ Error loading model: {e}")
 
+    
 # 4. SMILES TO GRAPH CONVERTER
 def smiles_to_graph(smiles_string: str):
     clean_smiles = smiles_string.strip()
