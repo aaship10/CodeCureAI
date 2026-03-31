@@ -1,9 +1,14 @@
+# Web Framework & Server
 fastapi
-uvicorn[standard]
-rdkit
+uvicorn
+
+# AI & Machine Learning
 torch
 torch-geometric
+scikit-learn
+
+# Bioinformatics & Cheminformatics
+rdkit
+
+# API Integration
 requests
-jinja2
-numpy
-pydantic
