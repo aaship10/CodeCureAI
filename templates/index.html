@@ -59,8 +59,50 @@
     </div>
 
     <script type="text/babel">
-        function App() {
-            // Started with an empty string as requested!
+        // 1. THE LANDING PAGE COMPONENT
+        function LandingPage({ onLaunch }) {
+            return (
+                <div class="w-full min-h-[80vh] flex flex-col items-center justify-center animate-fade-in px-4">
+                    {/* Hero Section */}
+                    <div class="text-center max-w-3xl mb-16">
+                        <div class="inline-block mb-4 px-3 py-1 rounded-full border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 text-xs font-semibold tracking-widest uppercase">
+                            Phase Zero Drug Discovery
+                        </div>
+                        <h1 class="text-5xl md:text-7xl font-light text-white tracking-tight mb-6">
+                            CodeCure <span class="font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">AI</span>
+                        </h1>
+                        <p class="text-lg md:text-xl text-zinc-400 font-light leading-relaxed mb-10">
+                            Stop poisoning patients in Phase III. Predict SR-p53 cellular toxicity and human absorption viability <i class="text-zinc-300">in silico</i> before synthesizing a single molecule.
+                        </p>
+                        <button
+                            onClick={onLaunch}
+                            class="px-8 py-4 bg-white text-black rounded-full font-semibold tracking-wide hover:scale-105 transition-transform duration-300 shadow-[0_0_30px_rgba(255,255,255,0.2)]"
+                        >
+                            LAUNCH WORKSPACE
+                        </button>
+                    </div>
+
+                    {/* Tech Flex Cards */}
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl w-full">
+                        <div class="glass-panel p-6 rounded-2xl border border-white/5 hover:border-indigo-500/30 transition-colors">
+                            <h3 class="text-white font-medium mb-2">Deep Graph Topology</h3>
+                            <p class="text-sm text-zinc-500 leading-relaxed">Utilizing PyTorch Geometric to map 3D atomic bonds and predict DNA damage beyond standard 2D molecular fingerprints.</p>
+                        </div>
+                        <div class="glass-panel p-6 rounded-2xl border border-white/5 hover:border-cyan-500/30 transition-colors">
+                            <h3 class="text-white font-medium mb-2">Rule of 5 Pharmacokinetics</h3>
+                            <p class="text-sm text-zinc-500 leading-relaxed">Instant RDKit calculation of Lipophilicity and Molecular Weight to guarantee human biological absorption.</p>
+                        </div>
+                        <div class="glass-panel p-6 rounded-2xl border border-white/5 hover:border-emerald-500/30 transition-colors">
+                            <h3 class="text-white font-medium mb-2">Live PubChem Render</h3>
+                            <p class="text-sm text-zinc-500 leading-relaxed">Self-healing API integration that dynamically fetches CIDs and renders interactive 3D structures in real-time.</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // 2. YOUR EXISTING ANALYSIS DASHBOARD (Renamed from App to AnalysisWorkspace)
+        function AnalysisWorkspace({ onBack }) {
             const [smiles, setSmiles] = React.useState("");
             const [result, setResult] = React.useState(null);
             const [loading, setLoading] = React.useState(false);
@@ -89,10 +131,7 @@
                 }
             };
 
-            // NEW: The 3D Engine Initialization
-            // NEW: The 3D Engine Initialization (Now using CID!)
             React.useEffect(() => {
-                // Check to make sure we actually received a CID from the backend
                 if (result && result.cid) {
                     setTimeout(() => {
                         const viewerElement = document.getElementById('molecule-viewer');
@@ -100,7 +139,6 @@
                             viewerElement.innerHTML = '';
                             const viewer = $3Dmol.createViewer(viewerElement, { backgroundColor: 'transparent' });
 
-                            // MAGIC FIX: Download using the exact CID number instead of the complex name
                             $3Dmol.download(`cid:${result.cid}`, viewer, {}, function () {
                                 viewer.setStyle({}, {
                                     stick: { radius: 0.15, colorscheme: 'Jmol' },
@@ -110,6 +148,13 @@
                                 viewer.zoomTo();
                                 viewer.render();
                             });
+
+                            viewerElement.addEventListener('wheel', function (e) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
+                                viewer.zoom(zoomFactor);
+                            }, { passive: false, capture: true });
                         }
                     }, 150);
                 }
@@ -122,9 +167,14 @@
             };
 
             return (
-                <div class="w-full animate-fade-in mx-auto">
+                <div class="w-full animate-fade-in mx-auto relative">
+                    {/* Back Button */}
+                    <button onClick={onBack} class="absolute -top-12 left-0 text-zinc-500 hover:text-white text-sm flex items-center gap-2 transition-colors">
+                        &larr; Back to Home
+                    </button>
+
                     {/* Header */}
-                    <div class="mb-12 text-center">
+                    <div class="mb-12 text-center mt-8">
                         <h1 class="text-3xl font-light text-white tracking-widest uppercase mb-2">CodeCure <span class="font-semibold text-indigo-400">AI</span></h1>
                         <p class="text-sm text-zinc-500 tracking-wide">DEEP GRAPH NEURAL NETWORK • TOX21 PATHWAY ANALYSIS</p>
                     </div>
@@ -154,15 +204,14 @@
                     )}
 
                     {loading && (
-                        <div class="glass-panel rounded-2xl p-10 text-center animate-subtle-pulse max-w-2xl mx-auto">
-                            <p class="text-zinc-400 text-sm tracking-widest uppercase mb-2">Constructing Graph Topology</p>
+                        <div class="glass-panel rounded-2xl p-10 text-center max-w-2xl mx-auto">
+                            <p class="text-zinc-400 text-sm tracking-widest uppercase mb-2 animate-pulse">Constructing Graph Topology</p>
                             <div class="h-[1px] w-24 bg-indigo-500/50 mx-auto"></div>
                         </div>
                     )}
 
                     {result && !loading && (
                         <div class="glass-panel rounded-2xl p-8 shadow-2xl transition-all duration-500">
-                            {/* Main Result Header */}
                             <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 pb-6 border-b border-zinc-800/50 gap-4">
                                 <div>
                                     <p class="text-xs text-zinc-500 uppercase tracking-widest mb-2">Identified Compound</p>
@@ -173,12 +222,8 @@
                                 </div>
                             </div>
 
-                            {/* Layout Grid: Stats on Left, 3D Render on Right */}
                             <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-
-                                {/* Left Column: Metrics */}
                                 <div class="lg:col-span-2 flex flex-col gap-6 pr-4">
-                                    {/* AI Toxicity Score */}
                                     <div>
                                         <p class="text-xs text-zinc-500 uppercase tracking-widest mb-2">SR-p53 Toxicity Probability</p>
                                         <p class="text-5xl font-light text-white mb-2">
@@ -186,7 +231,6 @@
                                         </p>
                                     </div>
 
-                                    {/* NEW: Lipinski's Rule of 5 Dashboard */}
                                     <div class="bg-black/20 rounded-xl p-5 border border-white/5 shadow-inner mt-2">
                                         <div class="flex justify-between items-center mb-4 border-b border-white/5 pb-3">
                                             <p class="text-[11px] text-zinc-400 uppercase tracking-widest font-semibold">Pharmacokinetics (Rule of 5)</p>
@@ -220,7 +264,6 @@
                                         </div>
                                     </div>
 
-                                    {/* Raw SMILES */}
                                     <div class="mt-2">
                                         <p class="text-[10px] text-zinc-500 uppercase tracking-widest mb-2">Input Geometry</p>
                                         <p class="text-xs text-zinc-400 mono break-all leading-relaxed">
@@ -229,7 +272,6 @@
                                     </div>
                                 </div>
 
-                                {/* Right Column: 3D Viewer */}
                                 <div class="h-64 lg:h-auto min-h-[240px] bg-black/40 rounded-xl border border-white/10 relative overflow-hidden group shadow-inner">
                                     <div class="absolute top-3 left-3 z-10">
                                         <p class="text-[10px] text-zinc-400 uppercase tracking-widest font-semibold drop-shadow-md">Interactive 3D Model</p>
@@ -243,26 +285,34 @@
                                         <div id="molecule-viewer" class="absolute inset-0 cursor-move"></div>
                                     )}
 
-                                    {/* Hover Instruction */}
                                     <div class="absolute bottom-3 right-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
                                         <p class="text-[9px] text-zinc-300 uppercase tracking-widest bg-black/60 px-2 py-1 rounded backdrop-blur-md border border-white/10">
                                             Drag to Rotate • Scroll to Zoom
                                         </p>
                                     </div>
                                 </div>
-
                             </div>
-
-                            {/* Scientific Disclaimer */}
                             <div class="mt-4 pt-6 border-t border-zinc-800/50">
                                 <p class="text-[10px] leading-relaxed text-zinc-600 uppercase tracking-wide">
-                                    * Prediction represents the probability of cellular stress and DNA damage strictly along the SR-p53 bioassay pathway. This model utilizes a multi-target Graph Neural Network. Compounds scoring low in this specific pathway may still present extreme systemic or neurological toxicities.
+                                    * Prediction represents the probability of cellular stress and DNA damage strictly along the SR-p53 bioassay pathway. This model utilizes a multi-target Graph Neural Network.
                                 </p>
                             </div>
                         </div>
                     )}
                 </div>
             );
+        }
+
+        // 3. THE MASTER CONTROLLER
+        function App() {
+            // This state decides which page to show!
+            const [currentView, setCurrentView] = React.useState('landing');
+
+            if (currentView === 'landing') {
+                return <LandingPage onLaunch={() => setCurrentView('workspace')} />;
+            }
+
+            return <AnalysisWorkspace onBack={() => setCurrentView('landing')} />;
         }
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
