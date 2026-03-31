@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+rdkit
+torch
+torch-geometric
+requests
+jinja2
+numpy
+pydantic
