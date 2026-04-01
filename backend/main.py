@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.templating import Jinja2Templates
+from fastapi.middleware.cors import CORSMiddleware # 1. NEW IMPORT
 from pydantic import BaseModel
 from rdkit import Chem
 from rdkit.Chem import Descriptors
@@ -18,7 +18,15 @@ from chembl_webresource_client.new_client import new_client
 
 # 1. Initialize the FastAPI Application
 app = FastAPI(title="CodeCure Toxicity Predictor")
-templates = Jinja2Templates(directory="templates")
+
+# 2. CONFIGURE CORS (Crucial for React connection)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # Allows all origins during hackathon development
+    allow_credentials=True,
+    allow_methods=["*"], # Allows POST, GET, etc.
+    allow_headers=["*"],
+)
 
 class MoleculeInput(BaseModel):
     smiles: str
@@ -157,11 +165,6 @@ def get_chembl_data(compound_name: str, smiles: str):
         print(f"ChEMBL API Error: {e}")
         
     return {"id": "Unregistered", "max_phase": 0, "type": "Novel / Uncatalogued"}
-
-
-@app.get("/")
-async def serve_frontend(request: Request):
-    return templates.TemplateResponse(request=request, name="index.html")
 
 @app.post("/predict")
 async def predict_toxicity(request: MoleculeInput):
