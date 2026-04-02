@@ -1,5 +1,5 @@
 # 🧬 CodeCure AI | Deep Learning for Drug Toxicity
-[![Live Demo](https://img.shields.io/badge/Launch_Workspace-Click_Here-4F46E5?style=for-the-badge)]([https://your-link-here.com](https://codecure-frontend.vercel.app/))
+[![Live Demo] - https://codecure-frontend.vercel.app/
 ## 🚀 Overview
 CodeCure AI is an end-to-end bioinformatics web application built for predicting compound toxicity in the early stages of drug discovery. Instead of relying on slow in-vitro testing, CodeCure utilizes a state-of-the-art **PyTorch Geometric Graph Neural Network (GNN)** to map the 3D atomic structure of novel compounds and predict cellular stress and DNA damage probabilities.
 
