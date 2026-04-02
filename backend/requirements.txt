@@ -2,6 +2,17 @@
 fastapi
 uvicorn
 
+#Database
+sqlalchemy
+psycopg2-binary
+
+#Authentication & Security
+passlib[bcrypt]
+python-jose[cryptography]
+
+#Environment & Config
+python-dotenv
+
 # AI & Machine Learning
 torch
 torch-geometric

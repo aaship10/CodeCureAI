@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400&display=swap');
+/* @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400&display=swap');
 @import "tailwindcss";
 
 body {
@@ -9,7 +9,6 @@ body {
   font-family: 'JetBrains Mono', monospace;
 }
 
-/* Glassmorphism Effect */
 .glass-panel {
   background: rgba(24, 24, 27, 0.4);
   backdrop-filter: blur(16px);
@@ -17,7 +16,111 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-/* Custom loading pulse */
+@keyframes subtle-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.animate-subtle-pulse {
+  animation: subtle-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+html, body {
+  overflow: hidden;
+  height: 100%;
+  margin: 0; 
+  background-color: #09090b; 
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.3); 
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.6);
+} */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400&display=swap');
+@import "tailwindcss";
+
+/* 1. GLOBAL LAYOUT & TRANSPARENCY */
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background-color: #030303; /* Slightly darker base for better particle contrast */
+  font-family: 'Inter', sans-serif;
+  color: white;
+}
+
+/* Ensure the React entry point is transparent */
+#root {
+  height: 100%;
+  width: 100%;
+  background: transparent;
+}
+
+.mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* 2. ENHANCED GLASSMORPHISM */
+/* Lowering the alpha from 0.4 to 0.2 makes the background particles visible */
+/* Glassmorphism Effect - Refined for Transparency */
+.glass-panel {
+  /* Lower alpha (0.15 - 0.25) lets background particles show through */
+  background: rgba(15, 15, 20, 0.22); 
+  
+  /* High blur creates the 'frosted' look without blocking the background light */
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  
+  /* A very thin, faint border gives the panel its 'edge' */
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  
+  /* Subtle outer glow to separate it from the deep black background */
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  
+  transition: border 0.3s ease, background 0.3s ease;
+}
+
+/* Optional: Add a hover state to make the dashboard feel interactive */
+.glass-panel:hover {
+  background: rgba(15, 15, 20, 0.3);
+  border: 1px solid rgba(99, 102, 241, 0.2); /* Faint Indigo border on hover */
+}
+
+/* 3. SLEEK INDIGO SCROLLBAR */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.15); /* Very subtle Indigo */
+  border-radius: 10px;
+  transition: all 0.3s ease;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.4); /* Glows on hover */
+}
+
+/* 4. ANIMATIONS */
 @keyframes subtle-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
